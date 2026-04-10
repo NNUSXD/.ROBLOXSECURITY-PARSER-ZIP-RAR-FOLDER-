@@ -343,8 +343,24 @@ class ParserGUI:
         self.parse_time = 0.0
         self.results_ready = False
         
+        # Initialize styles first before setup_ui
+        self.init_styles()
         self.setup_ui()
-        self.apply_styles()
+        
+    def init_styles(self):
+        """Initialize style dictionaries before UI creation"""
+        self.button_style = {
+            'bg': self.accent_color,
+            'fg': self.text_color,
+            'activebackground': self.highlight_color,
+            'activeforeground': self.text_color,
+            'font': ('Segoe UI', 11, 'bold'),
+            'relief': 'flat',
+            'padx': 20,
+            'pady': 10,
+            'cursor': 'hand2',
+            'borderwidth': 0
+        }
         
     def apply_styles(self):
         """Apply modern dark theme styles"""
@@ -401,19 +417,6 @@ class ParserGUI:
                        borderwidth=0,
                        lightcolor=self.highlight_color,
                        darkcolor=self.highlight_color)
-        
-        self.button_style = {
-            'bg': self.accent_color,
-            'fg': self.text_color,
-            'activebackground': self.highlight_color,
-            'activeforeground': self.text_color,
-            'font': ('Segoe UI', 11, 'bold'),
-            'relief': 'flat',
-            'padx': 20,
-            'pady': 10,
-            'cursor': 'hand2',
-            'borderwidth': 0
-        }
         
     def setup_ui(self):
         """Setup modern user interface"""
