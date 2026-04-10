@@ -386,8 +386,8 @@ class ParserGUI:
                        fieldbackground=self.card_bg,
                        foreground=self.text_color,
                        borderwidth=0,
-                       padding=10,
-                       insertcolor=self.text_color)
+                       padding=10)
+        
         style.configure('TCheckbutton',
                        background=self.bg_color,
                        foreground=self.text_color,
@@ -471,7 +471,6 @@ class ParserGUI:
                                    font=('Segoe UI', 10),
                                    fg=self.text_color,
                                    bg=self.bg_color,
-                                   insertcolor=self.text_color,
                                    relief='flat',
                                    width=50)
         self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=8)
@@ -502,7 +501,6 @@ class ParserGUI:
                                        font=('Segoe UI', 10),
                                        fg=self.text_color,
                                        bg=self.bg_color,
-                                       insertcolor=self.text_color,
                                        relief='flat',
                                        show="•",
                                        width=25)
@@ -529,7 +527,6 @@ class ParserGUI:
                                   font=('Segoe UI', 10),
                                   fg=self.text_color,
                                   bg=self.bg_color,
-                                  insertcolor=self.text_color,
                                   relief='flat',
                                   width=35)
         self.bot_entry.grid(row=0, column=1, padx=(10, 0), pady=5, ipady=5)
@@ -543,7 +540,6 @@ class ParserGUI:
                                    font=('Segoe UI', 10),
                                    fg=self.text_color,
                                    bg=self.bg_color,
-                                   insertcolor=self.text_color,
                                    relief='flat',
                                    width=35)
         self.chat_entry.grid(row=1, column=1, padx=(10, 0), pady=5, ipady=5)
